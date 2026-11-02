@@ -17,7 +17,10 @@ Substrate Articles 6 and 9; tabnode ADR-0007.
 - Keep command hashes local to their shell and qualify automatic entries by
   effective PATH and, for relative or empty PATH entries, cwd. Temporary PATH
   and `command -p` do not reuse or replace ordinary hashes. Explicit `hash -p`
-  paths survive cwd changes, while persistent PATH assignments reset hashes.
+  paths survive cwd changes, while scalar and export PATH assignments reset hashes.
+- Classify fresh, cached and explicit executable paths through the same file
+  resolver. A user script shadowing a registered command keeps script dispatch;
+  only registered system-stub paths select the supplier's handlers.
 - Base: upstream `vercel-labs/just-bash` commit
   `2bbbfaf8cc769109361ba29b55f5647a43988b14`, the source attested for npm 2.14.5.
   Runtime dependency ranges and upstream licence files remain intact; see
