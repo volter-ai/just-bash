@@ -3,7 +3,12 @@
 import type { InterpreterState } from "./types.js";
 
 export function hasTemporaryPath(state: InterpreterState): boolean {
-  return state.tempExportedVars?.has("PATH") ?? false;
+  // The binding stack retains an enclosing prefix after a nested command
+  // removes its own temporary-export marker for the same variable.
+  return (
+    (state.tempExportedVars?.has("PATH") ?? false) ||
+    (state.tempEnvBindings?.some((binding) => binding.has("PATH")) ?? false)
+  );
 }
 
 export function forgetCommandHashesOnPathAssignment(
