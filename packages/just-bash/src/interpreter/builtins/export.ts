@@ -8,9 +8,11 @@
  *   export NAME+=value  - Append value and export variable
  *   export NAME         - Export existing variable (or create empty)
  *   export -n NAME      - Un-export variable (remove from env)
+ * Modified by Volter for VO-3806/F6 (2026-11-01): reset hashes on PATH assignment.
  */
 
 import type { ExecResult } from "../../types.js";
+import { forgetCommandHashesOnPathAssignment } from "../command-hash.js";
 import { markExported, unmarkExported } from "../helpers/readonly.js";
 import { OK, result, success } from "../helpers/result.js";
 import { expandTildesInValue } from "../helpers/tilde.js";
@@ -64,6 +66,7 @@ export function handleExport(
         name = arg.slice(0, eqIdx);
         value = expandTildesInValue(ctx, arg.slice(eqIdx + 1));
         // Set the value
+        forgetCommandHashesOnPathAssignment(ctx.state, name);
         ctx.state.env.set(name, value);
       } else {
         name = arg;
@@ -107,6 +110,8 @@ export function handleExport(
     }
 
     if (value !== undefined) {
+      // Volter VO-3806/F6: export PATH also resets manual command hashes.
+      forgetCommandHashesOnPathAssignment(ctx.state, name);
       if (isAppend) {
         // Append to existing value (or set if not defined)
         const existing = ctx.state.env.get(name) ?? "";
@@ -117,6 +122,7 @@ export function handleExport(
     } else {
       // If variable doesn't exist, create it as empty
       if (!ctx.state.env.has(name)) {
+        forgetCommandHashesOnPathAssignment(ctx.state, name);
         ctx.state.env.set(name, "");
       }
     }

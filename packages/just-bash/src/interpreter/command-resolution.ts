@@ -2,10 +2,12 @@
  * Command Resolution
  *
  * Handles PATH-based command resolution and lookup for external commands.
+ * Modified by Volter for VO-3806/F6 (2026-11-01): qualify command hashes by PATH/cwd.
  */
 
 import type { IFileSystem } from "../fs/interface.js";
 import type { Command, CommandRegistry } from "../types.js";
+import { discardStaleCommandHashes, hasTemporaryPath } from "./command-hash.js";
 import type { InterpreterState } from "./types.js";
 
 /**
@@ -77,10 +79,13 @@ export async function resolveCommand(
     }
   }
 
-  // Check hash table first (unless pathOverride is set, which bypasses cache)
-  if (!pathOverride && ctx.state.hashTable) {
-    const cachedPath = ctx.state.hashTable.get(commandName);
-    if (cachedPath) {
+  // Explicit/default or temporary PATH lookups must neither use nor retire
+  // hashes belonging to the enclosing shell's ordinary PATH.
+  if (pathOverride === undefined && !hasTemporaryPath(ctx.state)) {
+    discardStaleCommandHashes(ctx.state);
+    const cached = ctx.state.hashTable?.get(commandName);
+    if (cached) {
+      const cachedPath = ctx.fs.resolvePath(ctx.state.cwd, cached.path);
       // Verify the cached path still exists
       if (await ctx.fs.exists(cachedPath)) {
         const cmd = ctx.commands.get(commandName);
@@ -96,10 +101,9 @@ export async function resolveCommand(
         } catch {
           // If stat fails, fall through to PATH search
         }
-      } else {
-        // Remove stale entry from hash table
-        ctx.state.hashTable.delete(commandName);
       }
+      // A missing or no-longer-executable hash cannot survive a fresh search.
+      ctx.state.hashTable?.delete(commandName);
     }
   }
 
@@ -108,11 +112,10 @@ export async function resolveCommand(
   const pathDirs = pathEnv.split(":");
 
   for (const dir of pathDirs) {
-    if (!dir) continue;
     // Resolve relative PATH directories against cwd
     const resolvedDir = dir.startsWith("/")
       ? dir
-      : ctx.fs.resolvePath(ctx.state.cwd, dir);
+      : ctx.fs.resolvePath(ctx.state.cwd, dir || ".");
     const fullPath = `${resolvedDir}/${commandName}`;
     if (await ctx.fs.exists(fullPath)) {
       // File exists - check if it's a directory
@@ -195,15 +198,14 @@ export async function findCommandInPath(
     return paths;
   }
 
-  const pathEnv = ctx.state.env.get("PATH") || "/usr/bin:/bin";
+  const pathEnv = ctx.state.env.get("PATH") ?? "/usr/bin:/bin";
   const pathDirs = pathEnv.split(":");
 
   for (const dir of pathDirs) {
-    if (!dir) continue;
     // Resolve relative PATH entries relative to cwd
     const resolvedDir = dir.startsWith("/")
       ? dir
-      : ctx.fs.resolvePath(ctx.state.cwd, dir);
+      : ctx.fs.resolvePath(ctx.state.cwd, dir || ".");
     const fullPath = `${resolvedDir}/${commandName}`;
     if (await ctx.fs.exists(fullPath)) {
       // Check if it's a directory - skip directories
@@ -216,7 +218,7 @@ export async function findCommandInPath(
         continue;
       }
       // Return the original path format (relative if relative was given)
-      paths.push(dir.startsWith("/") ? fullPath : `${dir}/${commandName}`);
+      paths.push(dir.startsWith("/") ? fullPath : `${dir || "."}/${commandName}`);
     }
   }
 

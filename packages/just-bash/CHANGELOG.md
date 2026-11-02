@@ -14,6 +14,10 @@ Substrate Articles 6 and 9; tabnode ADR-0007.
   hook and registered commands, retaining cwd/env/exported env, stdin, signal,
   descriptors, limits, defense checks and command error handling. The callback
   grants no trusted-host bypass and is carried into nested shell execution.
+- Keep command hashes local to their shell and qualify automatic entries by
+  effective PATH and, for relative or empty PATH entries, cwd. Temporary PATH
+  and `command -p` do not reuse or replace ordinary hashes. Explicit `hash -p`
+  paths survive cwd changes, while persistent PATH assignments reset hashes.
 - Base: upstream `vercel-labs/just-bash` commit
   `2bbbfaf8cc769109361ba29b55f5647a43988b14`, the source attested for npm 2.14.5.
   Runtime dependency ranges and upstream licence files remain intact; see

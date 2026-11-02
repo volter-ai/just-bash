@@ -32,6 +32,15 @@ Source owners:
   existing script reader/parser, after ordinary resolution. The source and
   redirection paths do not invoke it.
 
+Command hashes belong to their shell. Each remembered entry carries its
+effective PATH and, for automatic relative/empty-PATH lookup, cwd. A temporary
+PATH or `command -p` lookup bypasses ordinary hashes. Explicit `hash -p`
+entries keep their pathname semantics across cwd changes. Subshells, command
+substitutions and pipeline segments copy and restore their command hashes
+alongside their existing environment boundary; a newly executed shell starts
+with no inherited hashes. The implementation is in `command-hash.ts`, the
+resolver/dispatch and the existing state-copy doors.
+
 The source correction was prepared at `1de94fd59faed137b49167eaa87009a5d07d8f8e`
 without installs, builds, tests or publication. The packaging source names the
 owned package `@volter/just-bash@2.14.5-volter.0`, retains the upstream runtime

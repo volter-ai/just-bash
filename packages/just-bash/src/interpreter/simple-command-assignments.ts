@@ -5,6 +5,7 @@
  * - Array assignments: VAR=(a b c)
  * - Subscript assignments: VAR[idx]=value
  * - Scalar assignments with nameref resolution
+ * Modified by Volter for VO-3806/F6 (2026-11-01): reset hashes on persistent PATH assignment.
  */
 
 import type { SimpleCommandNode, WordNode } from "../ast/types.js";
@@ -12,6 +13,7 @@ import { parseArithmeticExpression } from "../parser/arithmetic-parser.js";
 import { Parser } from "../parser/parser.js";
 import type { ExecResult } from "../types.js";
 import { evaluateArithmetic } from "./arithmetic.js";
+import { forgetCommandHashesOnPathAssignment } from "./command-hash.js";
 import {
   applyCaseTransform,
   getLocalVarDepth,
@@ -809,6 +811,9 @@ async function processScalarAssignment(
     tempAssignments.set(actualEnvKey, ctx.state.env.get(actualEnvKey));
     ctx.state.env.set(actualEnvKey, finalValue);
   } else {
+    // Volter VO-3806/F6: assigning PATH resets hashes even for the same value;
+    // a prefix binding remains scoped to its command instead.
+    forgetCommandHashesOnPathAssignment(ctx.state, actualEnvKey);
     ctx.state.env.set(actualEnvKey, finalValue);
     if (ctx.state.options.allexport) {
       ctx.state.exportedVars = ctx.state.exportedVars || new Set();

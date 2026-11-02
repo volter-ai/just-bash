@@ -8,6 +8,7 @@
  * - Tilde expansion (~)
  * - Brace expansion {a,b,c}
  * - Glob expansion (*, ?, [...])
+ * Modified by Volter for VO-3806/F6 (2026-11-01): isolate command-substitution hashes.
  */
 
 import type {
@@ -766,6 +767,9 @@ async function expandPart(
       // Save environment - command substitutions run in a subshell and should not
       // modify parent environment (e.g., aliases defined inside $() should not leak)
       const savedEnv = new Map(ctx.state.env);
+      // Volter VO-3806/F6: command-substitution hashes are shell-local too.
+      const savedHashTable = ctx.state.hashTable;
+      ctx.state.hashTable = new Map(savedHashTable);
       const savedCwd = ctx.state.cwd;
       // Suppress verbose mode (set -v) inside command substitutions
       // bash only prints verbose output for the main script
@@ -776,6 +780,7 @@ async function expandPart(
         // Restore environment but preserve exit code
         const exitCode = result.exitCode;
         ctx.state.env = savedEnv;
+        ctx.state.hashTable = savedHashTable;
         ctx.state.cwd = savedCwd;
         ctx.state.suppressVerbose = savedSuppressVerbose;
         // Store the exit code for $?
@@ -800,6 +805,7 @@ async function expandPart(
       } catch (error) {
         // Restore environment on error as well
         ctx.state.env = savedEnv;
+        ctx.state.hashTable = savedHashTable;
         ctx.state.cwd = savedCwd;
         ctx.state.bashPid = savedBashPid;
         ctx.substitutionDepth = savedDepth;

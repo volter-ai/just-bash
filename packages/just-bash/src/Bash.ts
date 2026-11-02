@@ -613,8 +613,9 @@ export class Bash {
       functions: new Map(this.state.functions),
       localScopes: [...this.state.localScopes],
       options: { ...this.state.options },
-      // Share hashTable reference - it should persist across exec calls
-      hashTable: this.state.hashTable,
+      // Volter VO-3806/F6: exec starts a new shell, with no inherited command
+      // hashes from another invocation's PATH or cwd.
+      hashTable: new Map(),
       // Pass stdin through to commands (for bash -c with piped input)
       groupStdin: options?.stdin,
       // Cooperative cancellation signal (used by timeout command)

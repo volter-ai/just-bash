@@ -13,9 +13,15 @@
  *   -l         Display in a format that can be reused as input
  *   -p path    Use path as the full pathname for name (hash -p /path name)
  *   -t name    Print the remembered location of name
+ * Modified by Volter for VO-3806/F6 (2026-11-01): retain lookup ownership and explicit paths.
  */
 
 import type { ExecResult } from "../../types.js";
+import {
+  discardStaleCommandHashes,
+  rememberCommandHash,
+} from "../command-hash.js";
+import { resolveCommand } from "../command-resolution.js";
 import { failure, OK, success } from "../helpers/result.js";
 import type { InterpreterContext } from "../types.js";
 
@@ -23,6 +29,7 @@ export async function handleHash(
   ctx: InterpreterContext,
   args: string[],
 ): Promise<ExecResult> {
+  discardStaleCommandHashes(ctx.state);
   // Initialize hash table if needed
   if (!ctx.state.hashTable) {
     ctx.state.hashTable = new Map();
@@ -128,13 +135,13 @@ export async function handleHash(
     let hasError = false;
     let stderr = "";
     for (const name of names) {
-      const cachedPath = ctx.state.hashTable.get(name);
-      if (cachedPath) {
+      const cached = ctx.state.hashTable.get(name);
+      if (cached) {
         // If multiple names, show "name\tpath" format
         if (names.length > 1) {
-          stdout += `${name}\t${cachedPath}\n`;
+          stdout += `${name}\t${cached.path}\n`;
         } else {
-          stdout += `${cachedPath}\n`;
+          stdout += `${cached.path}\n`;
         }
       } else {
         stderr += `bash: hash: ${name}: not found\n`;
@@ -157,7 +164,7 @@ export async function handleHash(
     }
     // Associate the pathname with the first name
     const name = names[0];
-    ctx.state.hashTable.set(name, pathname);
+    rememberCommandHash(ctx.state, name, pathname, true);
     return OK;
   }
 
@@ -170,15 +177,15 @@ export async function handleHash(
     let stdout = "";
     if (listMode) {
       // Reusable format: builtin hash -p /path/to/cmd cmd
-      for (const [name, path] of ctx.state.hashTable) {
-        stdout += `builtin hash -p ${path} ${name}\n`;
+      for (const [name, entry] of ctx.state.hashTable) {
+        stdout += `builtin hash -p ${entry.path} ${name}\n`;
       }
     } else {
       // Default format (bash style: hits command table)
       stdout = "hits\tcommand\n";
-      for (const [, path] of ctx.state.hashTable) {
+      for (const [, entry] of ctx.state.hashTable) {
         // We don't track hits, so just show 1
-        stdout += `   1\t${path}\n`;
+        stdout += `   1\t${entry.path}\n`;
       }
     }
     return success(stdout);
@@ -187,8 +194,7 @@ export async function handleHash(
   // Add names to hash table (look up in PATH)
   let hasError = false;
   let stderr = "";
-  const pathEnv = ctx.state.env.get("PATH") || "/usr/bin:/bin";
-  const pathDirs = pathEnv.split(":");
+  const pathEnv = ctx.state.env.get("PATH") ?? "/usr/bin:/bin";
 
   for (const name of names) {
     // Skip if name contains / (it's a path, not looked up in PATH)
@@ -198,19 +204,12 @@ export async function handleHash(
       continue;
     }
 
-    // Search PATH for the command
-    let found = false;
-    for (const dir of pathDirs) {
-      if (!dir) continue;
-      const fullPath = `${dir}/${name}`;
-      if (await ctx.fs.exists(fullPath)) {
-        ctx.state.hashTable.set(name, fullPath);
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) {
+    // Force a fresh effective-PATH search, sharing executable/relative-entry
+    // handling with ordinary command resolution rather than a second lookup.
+    const resolved = await resolveCommand(ctx, name, pathEnv);
+    if (resolved && !("error" in resolved)) {
+      rememberCommandHash(ctx.state, name, resolved.path);
+    } else {
       stderr += `bash: hash: ${name}: not found\n`;
       hasError = true;
     }
