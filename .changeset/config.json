@@ -2,7 +2,9 @@
   "$schema": "https://unpkg.com/@changesets/config@3/schema.json",
   "changelog": [
     "@changesets/changelog-github",
-    { "repo": "vercel-labs/just-bash" }
+    {
+      "repo": "volter-ai/just-bash"
+    }
   ],
   "commit": false,
   "fixed": [],

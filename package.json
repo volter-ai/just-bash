@@ -1,10 +1,10 @@
 {
-  "name": "just-bash-monorepo",
+  "name": "volter-just-bash-monorepo",
   "private": true,
   "description": "Monorepo root for just-bash",
   "scripts": {
     "build": "pnpm --filter './packages/*' build",
-    "build:worker": "pnpm --filter just-bash build:worker",
+    "build:worker": "pnpm --filter @volter/just-bash build:worker",
     "typecheck": "pnpm --filter './packages/*' typecheck",
     "lint": "biome check . && pnpm --filter './packages/*' lint:banned",
     "lint:fix": "biome check --write .",
@@ -16,12 +16,12 @@
     "test:comparison:record": "pnpm --filter './packages/*' test:comparison:record",
     "test:dist": "pnpm --filter './packages/*' test:dist",
     "test:examples": "pnpm --filter cjs-consumer-example typecheck",
-    "check:worker-sync": "pnpm --filter just-bash check:worker-sync",
-    "shell": "pnpm --filter just-bash shell",
-    "dev:exec": "pnpm --filter just-bash dev:exec",
+    "check:worker-sync": "pnpm --filter @volter/just-bash check:worker-sync",
+    "shell": "pnpm --filter @volter/just-bash shell",
+    "dev:exec": "pnpm --filter @volter/just-bash dev:exec",
     "changeset": "changeset",
     "version-packages": "changeset version && pnpm install --lockfile-only",
-    "release": "pnpm --filter './packages/*' build && changeset publish"
+    "release": "node dev/release/prepare-package.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.10",

@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "files": [
+    "src/index.ts",
+    "src/browser.ts",
+    "src/cli/just-bash.ts",
+    "src/cli/shell.ts",
+    "src/commands/python3/worker.ts",
+    "src/commands/js-exec/js-exec-worker.ts",
+    "src/commands/sqlite3/worker.ts"
+  ],
+  "include": [],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,6 +1,6 @@
 # just-bash
 
-## Volter source candidate — unreleased
+## 2.14.5-volter.0 — unpublished candidate
 
 Modified by Volter, 2026-11-01, for VO-3806 `t_c656e6fd` / `t_07fc0d39`,
 Substrate Articles 6 and 9; tabnode ADR-0007.
@@ -16,8 +16,14 @@ Substrate Articles 6 and 9; tabnode ADR-0007.
   grants no trusted-host bypass and is carried into nested shell execution.
 - Base: upstream `vercel-labs/just-bash` commit
   `2bbbfaf8cc769109361ba29b55f5647a43988b14`, the source attested for npm 2.14.5.
-  No dependency versions, package version, generated bundles or upstream licence
-  files change in this source candidate; see `VOLTER-SOURCE.md`.
+  Runtime dependency ranges and upstream licence files remain intact; see
+  `VOLTER-SOURCE.md`.
+- Give the owned fork its separate `@volter/just-bash` package identity, source
+  receipt and explicit browser declarations. An isolated locked production
+  build prepares an unpublished archive; workspace test/example installs,
+  automatic CI and publication hooks are outside that recipe. Main cannot
+  publish. The retained archive needs its exact keys sweep and manager's
+  publication authorisation before a separate local publish.
 
 ## 2.14.5
 

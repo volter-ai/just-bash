@@ -1,5 +1,13 @@
 # just-bash
 
+This is Volter's Apache-2.0 source fork, distributed separately as
+`@volter/just-bash@2.14.5-volter.0`. It starts at upstream commit
+`2bbbfaf8cc769109361ba29b55f5647a43988b14` and adds the optional
+`BashOptions.scriptExecutor` callback used after ordinary shell executable
+resolution. Node and browser entry points export its `ScriptExecutor` type.
+See `VOLTER-SOURCE.md` and the repository's `dev/release/README.md` for source,
+build and publication receipts. Upstream documentation and credits follow.
+
 A virtual bash environment with an in-memory filesystem, written in TypeScript and designed for AI agents.
 
 Broad support for standard unix commands and bash syntax with optional curl, Python, JS/TS, and sqlite support.
