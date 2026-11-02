@@ -1,3 +1,4 @@
+// Modified by Volter for VO-3806: export ScriptExecutor (2026-11-01).
 // AST types (for plugin authors)
 export type {
   CommandNode,
@@ -117,4 +118,5 @@ export type {
   CommandContext,
   ExecResult,
   IFileSystem,
+  ScriptExecutor,
 } from "./types.js";

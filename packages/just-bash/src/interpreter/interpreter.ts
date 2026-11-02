@@ -8,7 +8,7 @@
  * - Conditional evaluation (conditionals.ts)
  * - Built-in commands (builtins.ts)
  * - Redirections (redirections.ts)
- * Modified by Volter for VO-3806: share command execution context (2026-11-01).
+ * Modified by Volter for VO-3806: share command context and dispatch script interpreters (2026-11-01).
  */
 
 import type {
@@ -37,6 +37,7 @@ import type {
   CommandRegistry,
   ExecResult,
   FeatureCoverageWriter,
+  ScriptExecutor,
   TraceCallback,
 } from "../types.js";
 import { expandAlias as expandAliasHelper } from "./alias-expansion.js";
@@ -50,6 +51,7 @@ import {
   dispatchBuiltin,
   executeExternalCommand,
 } from "./builtin-dispatch.js";
+import { executeCommandHandler } from "./command-context.js";
 import { findCommandInPath as findCommandInPathHelper } from "./command-resolution.js";
 import { evaluateConditional } from "./conditionals.js";
 import {
@@ -135,6 +137,8 @@ export interface InterpreterOptions {
   requireDefenseContext?: boolean;
   /** Bootstrap JavaScript code for js-exec */
   jsBootstrapCode?: string;
+  /** Optional executable-script interpreter, after shell command resolution. */
+  scriptExecutor?: ScriptExecutor;
 }
 
 export class Interpreter {
@@ -156,6 +160,7 @@ export class Interpreter {
       coverage: options.coverage,
       requireDefenseContext: options.requireDefenseContext ?? false,
       jsBootstrapCode: options.jsBootstrapCode,
+      scriptExecutor: options.scriptExecutor,
     };
   }
 
@@ -323,6 +328,16 @@ export class Interpreter {
     args: string[],
     stdin = "",
   ): Promise<ExecResult> {
+    const executor = this.ctx.scriptExecutor;
+    if (executor) {
+      const result = await executeCommandHandler(
+        this.ctx,
+        scriptPath,
+        stdin,
+        (context) => executor(scriptPath, args, context),
+      );
+      if (result !== undefined) return result;
+    }
     return executeUserScriptHelper(this.ctx, scriptPath, args, stdin, (ast) =>
       this.executeScript(ast),
     );

@@ -6,6 +6,7 @@
  *
  * This class provides the shell environment (filesystem, commands, variables)
  * and delegates execution to the Interpreter.
+ * Modified by Volter for VO-3806: carry an optional script executor (2026-11-01).
  */
 
 import type { FunctionDefNode } from "./ast/types.js";
@@ -71,6 +72,7 @@ import type {
   Command,
   CommandRegistry,
   FeatureCoverageWriter,
+  ScriptExecutor,
   TraceCallback,
 } from "./types.js";
 
@@ -97,6 +99,8 @@ export interface BashOptions {
   env?: Record<string, string>;
   cwd?: string;
   fs?: IFileSystem;
+  /** Dispatch an already-resolved executable script; undefined retains shell execution. */
+  scriptExecutor?: ScriptExecutor;
   /**
    * Execution limits to prevent runaway compute.
    * See ExecutionLimits interface for available options.
@@ -277,6 +281,7 @@ export class Bash {
   private defenseInDepthConfig?: DefenseInDepthConfig | boolean;
   private coverageWriter?: FeatureCoverageWriter;
   private jsBootstrapCode?: string;
+  private scriptExecutor?: ScriptExecutor;
   // biome-ignore lint/suspicious/noExplicitAny: type-erased plugin storage for untyped API
   private transformPlugins: TransformPlugin<any>[] = [];
 
@@ -286,6 +291,7 @@ export class Bash {
   constructor(options: BashOptions = {}) {
     const fs = options.fs ?? new InMemoryFs(options.files);
     this.fs = fs;
+    this.scriptExecutor = options.scriptExecutor;
 
     this.useDefaultLayout = !options.cwd && !options.files;
     const cwd = options.cwd || (this.useDefaultLayout ? "/home/user" : "/");
@@ -666,6 +672,7 @@ export class Bash {
           coverage: this.coverageWriter,
           requireDefenseContext: defenseBox?.isEnabled() === true,
           jsBootstrapCode: this.jsBootstrapCode,
+          scriptExecutor: this.scriptExecutor,
         };
 
         const interpreter = new Interpreter(interpreterOptions, execState);

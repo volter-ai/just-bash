@@ -1,3 +1,4 @@
+/** Modified by Volter for VO-3806: expose script interpreter dispatch (2026-11-01). */
 import type { IFileSystem } from "./fs/interface.js";
 import type { ExecutionLimits } from "./limits.js";
 import type { SecureFetch } from "./network/index.js";
@@ -24,6 +25,18 @@ export interface ExecResult {
    */
   stdoutEncoding?: "binary";
 }
+
+/**
+ * Optional interpreter for an executable script after normal shell resolution.
+ * Return undefined to run the original shell script reader/parser. This hook
+ * does not run for source, redirection, shell functions or builtins, and has
+ * the same guarded context as an ordinary untrusted custom command.
+ */
+export type ScriptExecutor = (
+  resolvedPath: string,
+  args: string[],
+  context: CommandContext,
+) => Promise<ExecResult | undefined>;
 
 /** Result from BashEnv.exec() - always includes env */
 export interface BashExecResult extends ExecResult {

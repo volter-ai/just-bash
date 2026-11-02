@@ -1,5 +1,6 @@
 /**
  * Interpreter Types
+ * Modified by Volter for VO-3806: carry the optional script executor (2026-11-01).
  */
 
 import type {
@@ -15,6 +16,7 @@ import type {
   CommandRegistry,
   ExecResult,
   FeatureCoverageWriter,
+  ScriptExecutor,
   TraceCallback,
 } from "../types.js";
 
@@ -444,4 +446,6 @@ export interface InterpreterContext {
    * Threaded through the context chain instead of shell env.
    */
   jsBootstrapCode?: string;
+  /** Optional executable-script interpreter, after shell command resolution. */
+  scriptExecutor?: ScriptExecutor;
 }

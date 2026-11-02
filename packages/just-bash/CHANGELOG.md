@@ -1,5 +1,24 @@
 # just-bash
 
+## Volter source candidate — unreleased
+
+Modified by Volter, 2026-11-01, for VO-3806 `t_c656e6fd` / `t_07fc0d39`,
+Substrate Articles 6 and 9; tabnode ADR-0007.
+
+- Add optional `BashOptions.scriptExecutor(resolvedPath, args, context)` with the
+  shared public `ScriptExecutor` type in Node and browser entry points. The hook
+  runs after the shell selects an executable and before reading/parsing it;
+  undefined retains the original script executor. Functions, builtins, source
+  and redirection keep their existing paths.
+- Share the existing live command context and guarded dispatch between this
+  hook and registered commands, retaining cwd/env/exported env, stdin, signal,
+  descriptors, limits, defense checks and command error handling. The callback
+  grants no trusted-host bypass and is carried into nested shell execution.
+- Base: upstream `vercel-labs/just-bash` commit
+  `2bbbfaf8cc769109361ba29b55f5647a43988b14`, the source attested for npm 2.14.5.
+  No dependency versions, package version, generated bundles or upstream licence
+  files change in this source candidate; see `VOLTER-SOURCE.md`.
+
 ## 2.14.5
 
 ### Patch Changes

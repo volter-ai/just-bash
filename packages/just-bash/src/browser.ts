@@ -8,6 +8,7 @@
  *
  * Note: The gzip/gunzip/zcat commands will fail at runtime in browsers
  * since they use node:zlib. All other commands work.
+ * Modified by Volter for VO-3806: export the shared ScriptExecutor type (2026-11-01).
  */
 
 export type { BashLogger, BashOptions, ExecOptions } from "./Bash.js";
@@ -58,4 +59,5 @@ export type {
   CommandContext,
   ExecResult,
   IFileSystem,
+  ScriptExecutor,
 } from "./types.js";

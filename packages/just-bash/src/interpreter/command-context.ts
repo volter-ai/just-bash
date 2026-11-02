@@ -68,7 +68,7 @@ export async function executeCommandHandler<T extends ExecResult | undefined>(
   commandName: string,
   stdin: string,
   execute: (context: CommandContext) => Promise<T>,
-  trusted = false,
+  trusted: boolean = false,
 ): Promise<T | ExecResult> {
   const commandContext = createCommandContext(ctx, commandName, stdin);
   try {
