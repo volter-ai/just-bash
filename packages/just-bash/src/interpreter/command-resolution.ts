@@ -2,10 +2,12 @@
  * Command Resolution
  *
  * Handles PATH-based command resolution and lookup for external commands.
+ * Modified by Volter for VO-3806/F6 (2026-11-01): qualify command hashes by PATH/cwd.
  */
 
 import type { IFileSystem } from "../fs/interface.js";
 import type { Command, CommandRegistry } from "../types.js";
+import { discardStaleCommandHashes, hasTemporaryPath } from "./command-hash.js";
 import type { InterpreterState } from "./types.js";
 
 /**
@@ -26,6 +28,31 @@ export type ResolveCommandResult =
   | { error: "not_found" | "permission_denied"; path?: string }
   | null;
 
+/** Classify the selected file identically for explicit, hashed and PATH lookup. */
+async function resolveExecutableFile(
+  ctx: CommandResolutionContext,
+  path: string,
+): Promise<NonNullable<ResolveCommandResult>> {
+  if (!(await ctx.fs.exists(path))) return { error: "not_found", path };
+  try {
+    const stat = await ctx.fs.stat(path);
+    if (stat.isDirectory) return { error: "permission_denied", path };
+    const name = path.split("/").pop() || "";
+    // Only the supplier's system stub paths select registered handlers. A
+    // user executable with the same basename remains a script on every use,
+    // including an explicit path or hash -p association.
+    if (path === `/bin/${name}` || path === `/usr/bin/${name}`) {
+      const cmd = ctx.commands.get(name);
+      if (cmd) return { cmd, path };
+    }
+    return (stat.mode & 0o111) !== 0
+      ? { script: true, path }
+      : { error: "permission_denied", path };
+  } catch {
+    return { error: "not_found", path };
+  }
+}
+
 /**
  * Resolve a command name to its implementation via PATH lookup.
  * Returns the command and its resolved path, or null if not found.
@@ -43,63 +70,20 @@ export async function resolveCommand(
   // If command contains "/", it's a path - resolve directly
   if (commandName.includes("/")) {
     const resolvedPath = ctx.fs.resolvePath(ctx.state.cwd, commandName);
-    // Check if file exists
-    if (!(await ctx.fs.exists(resolvedPath))) {
-      return { error: "not_found", path: resolvedPath };
-    }
-    // Extract command name from path
-    const cmdName = resolvedPath.split("/").pop() || commandName;
-    const cmd = ctx.commands.get(cmdName);
-
-    // Check file properties
-    try {
-      const stat = await ctx.fs.stat(resolvedPath);
-      if (stat.isDirectory) {
-        // Trying to execute a directory
-        return { error: "permission_denied", path: resolvedPath };
-      }
-      // For registered commands (like /bin/echo), skip execute check
-      // since they're our internal implementations
-      if (cmd) {
-        return { cmd, path: resolvedPath };
-      }
-      // For non-registered commands, check if the file is executable
-      const isExecutable = (stat.mode & 0o111) !== 0;
-      if (!isExecutable) {
-        // File exists but is not executable - permission denied
-        return { error: "permission_denied", path: resolvedPath };
-      }
-      // File exists and is executable - treat as user script
-      return { script: true, path: resolvedPath };
-    } catch {
-      // If stat fails, treat as not found
-      return { error: "not_found", path: resolvedPath };
-    }
+    return resolveExecutableFile(ctx, resolvedPath);
   }
 
-  // Check hash table first (unless pathOverride is set, which bypasses cache)
-  if (!pathOverride && ctx.state.hashTable) {
-    const cachedPath = ctx.state.hashTable.get(commandName);
-    if (cachedPath) {
-      // Verify the cached path still exists
-      if (await ctx.fs.exists(cachedPath)) {
-        const cmd = ctx.commands.get(commandName);
-        if (cmd) {
-          return { cmd, path: cachedPath };
-        }
-        // Also check if it's an executable script (not just registered commands)
-        try {
-          const stat = await ctx.fs.stat(cachedPath);
-          if (!stat.isDirectory && (stat.mode & 0o111) !== 0) {
-            return { script: true, path: cachedPath };
-          }
-        } catch {
-          // If stat fails, fall through to PATH search
-        }
-      } else {
-        // Remove stale entry from hash table
-        ctx.state.hashTable.delete(commandName);
-      }
+  // Explicit/default or temporary PATH lookups must neither use nor retire
+  // hashes belonging to the enclosing shell's ordinary PATH.
+  if (pathOverride === undefined && !hasTemporaryPath(ctx.state)) {
+    discardStaleCommandHashes(ctx.state);
+    const cached = ctx.state.hashTable?.get(commandName);
+    if (cached) {
+      const cachedPath = ctx.fs.resolvePath(ctx.state.cwd, cached.path);
+      const resolved = await resolveExecutableFile(ctx, cachedPath);
+      if (!("error" in resolved)) return resolved;
+      // A missing or no-longer-executable hash cannot survive a fresh search.
+      ctx.state.hashTable?.delete(commandName);
     }
   }
 
@@ -108,47 +92,13 @@ export async function resolveCommand(
   const pathDirs = pathEnv.split(":");
 
   for (const dir of pathDirs) {
-    if (!dir) continue;
     // Resolve relative PATH directories against cwd
     const resolvedDir = dir.startsWith("/")
       ? dir
-      : ctx.fs.resolvePath(ctx.state.cwd, dir);
-    const fullPath = `${resolvedDir}/${commandName}`;
-    if (await ctx.fs.exists(fullPath)) {
-      // File exists - check if it's a directory
-      try {
-        const stat = await ctx.fs.stat(fullPath);
-        if (stat.isDirectory) {
-          continue; // Skip directories
-        }
-        const isExecutable = (stat.mode & 0o111) !== 0;
-        // Check for registered command handler
-        const cmd = ctx.commands.get(commandName);
-
-        // Determine if this is a system directory where command stubs live
-        const isSystemDir = dir === "/bin" || dir === "/usr/bin";
-
-        if (cmd && isSystemDir) {
-          // Registered commands in system directories work without execute bits
-          // (they're our internal implementations with stub files)
-          return { cmd, path: fullPath };
-        }
-
-        // For non-system directories (or non-registered commands), require executable
-        if (isExecutable) {
-          if (cmd && !isSystemDir) {
-            // User script shadows a registered command - treat as script
-            return { script: true, path: fullPath };
-          }
-          if (!cmd) {
-            // No registered handler - treat as user script
-            return { script: true, path: fullPath };
-          }
-        }
-      } catch {
-        // If stat fails, continue searching
-      }
-    }
+      : ctx.fs.resolvePath(ctx.state.cwd, dir || ".");
+    const fullPath = ctx.fs.resolvePath(resolvedDir, commandName);
+    const resolved = await resolveExecutableFile(ctx, fullPath);
+    if (!("error" in resolved)) return resolved;
   }
 
   // Fallback: check registry directly only if /usr/bin doesn't exist
@@ -195,15 +145,14 @@ export async function findCommandInPath(
     return paths;
   }
 
-  const pathEnv = ctx.state.env.get("PATH") || "/usr/bin:/bin";
+  const pathEnv = ctx.state.env.get("PATH") ?? "/usr/bin:/bin";
   const pathDirs = pathEnv.split(":");
 
   for (const dir of pathDirs) {
-    if (!dir) continue;
     // Resolve relative PATH entries relative to cwd
     const resolvedDir = dir.startsWith("/")
       ? dir
-      : ctx.fs.resolvePath(ctx.state.cwd, dir);
+      : ctx.fs.resolvePath(ctx.state.cwd, dir || ".");
     const fullPath = `${resolvedDir}/${commandName}`;
     if (await ctx.fs.exists(fullPath)) {
       // Check if it's a directory - skip directories
@@ -216,7 +165,7 @@ export async function findCommandInPath(
         continue;
       }
       // Return the original path format (relative if relative was given)
-      paths.push(dir.startsWith("/") ? fullPath : `${dir}/${commandName}`);
+      paths.push(dir.startsWith("/") ? fullPath : `${dir || "."}/${commandName}`);
     }
   }
 

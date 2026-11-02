@@ -2,6 +2,7 @@
  * Pipeline Execution
  *
  * Handles execution of command pipelines (cmd1 | cmd2 | cmd3).
+ * Modified by Volter for VO-3806/F6 (2026-11-01): isolate pipeline-subshell hashes.
  */
 
 import type { CommandNode, PipelineNode } from "../ast/types.js";
@@ -71,6 +72,9 @@ export async function executePipeline(
     // Save environment for commands running in subshell context
     // This prevents variable assignments (e.g., ${cmd=echo}) from leaking to parent
     const savedEnv = runsInSubshell ? new Map(ctx.state.env) : null;
+    // Volter VO-3806/F6: retain the same subshell boundary for command hashes.
+    const savedHashTable = ctx.state.hashTable;
+    if (runsInSubshell) ctx.state.hashTable = new Map(savedHashTable);
 
     let result: ExecResult;
     try {
@@ -105,6 +109,7 @@ export async function executePipeline(
         // Restore environment before re-throwing
         if (savedEnv) {
           ctx.state.env = savedEnv;
+          ctx.state.hashTable = savedHashTable;
         }
         throw error;
       }
@@ -113,6 +118,7 @@ export async function executePipeline(
     // Restore environment for subshell commands to prevent variable assignment leakage
     if (savedEnv) {
       ctx.state.env = savedEnv;
+      ctx.state.hashTable = savedHashTable;
     }
 
     // Track exit code for PIPESTATUS

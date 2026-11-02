@@ -52,6 +52,7 @@ import {
   executeExternalCommand,
 } from "./builtin-dispatch.js";
 import { executeCommandHandler } from "./command-context.js";
+import { discardStaleCommandHashes } from "./command-hash.js";
 import { findCommandInPath as findCommandInPathHelper } from "./command-resolution.js";
 import { evaluateConditional } from "./conditionals.js";
 import {
@@ -487,6 +488,10 @@ export class Interpreter {
     node: SimpleCommandNode,
     stdin: string,
   ): Promise<ExecResult> {
+    // Volter VO-3806/F6: observe persistent PATH/cwd changes between shell
+    // commands, including assignment-only commands, before another change
+    // can restore an earlier lookup context.
+    discardStaleCommandHashes(this.ctx.state);
     try {
       return await this.executeSimpleCommandInner(node, stdin);
     } catch (error) {

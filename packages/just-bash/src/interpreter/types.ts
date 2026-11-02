@@ -38,6 +38,14 @@ export interface CompletionSpec {
   isDefault?: boolean;
 }
 
+/** Volter VO-3806: a remembered path belongs to its effective lookup context. */
+export interface CommandHashEntry {
+  path: string;
+  pathEnv: string | undefined;
+  /** Automatic hashes with relative PATH entries also belong to this cwd. */
+  cwd?: string;
+}
+
 export interface ShellOptions {
   /** set -e: Exit immediately if a command exits with non-zero status */
   errexit: boolean;
@@ -388,7 +396,7 @@ export interface InterpreterState
   /** Directory stack for pushd/popd/dirs */
   directoryStack?: string[];
   /** Hash table for PATH command lookup caching */
-  hashTable?: Map<string, string>;
+  hashTable?: Map<string, CommandHashEntry>;
 
   // ---- Output Control ----
   /**

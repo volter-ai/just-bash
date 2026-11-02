@@ -3,7 +3,7 @@
 Status: Proposed. No replacement recipe, download or build is authorised by
 this record until its plan review passes.
 
-Card: VO-3806 `t_c656e6fd`, supplier task `t_07fc0d39`.
+Card: VO-3806 `t_c656e6fd`, supplier task `t_871f2a50`.
 Substrate Articles 5, 6 and 9. Proposed 2026-11-01.
 
 ## Cause and established inputs
@@ -26,22 +26,9 @@ The generated wrapper has no license header. The stdlib ZIP has 514 entries
 and no LICENSE, COPYING or NOTICE path. The current vendor directory has no
 source recipe or notices.
 
-The original source commit
-`5eef8f1e21ca7e8e585812aefede301632471525`, its merged PR133 commit
-`53ae1c6141d34b3b63827d4fccb8a7f8cbb63855`, PR134 commit
-`6983884a9eb733a5a988d96b26b535742cfa4f09`, and wrapper cleanup commit
-`15ed4b542eb4867bbebf5253623269a94f67cb42` retain generated outputs, without
-the build source or recipe. PR133/134 bodies, reviews and inline comments add
-none. The worker and threat model claim an Emscripten-level `system()` no-op;
-the original source of that change remains unknown.
-
-Frozen unpublished candidate source
-`03f0f53041a9bfbf3a967ea4ec0e7541beea298c`, archive SHA-256
-`25bfef80ff90f69521b2c3bd720e4a6900832dae9eb1189d63de7bf950cf98e2`,
-is a local integration candidate only. Its JavaScript package build does not
-establish that the inherited Python payloads were built from retained source
-or have a complete rights closure. Preserve that candidate and its original
-receipt. Do not relabel, repack, publish or sweep it as the replacement.
+The worker and threat model require an Emscripten-level `system()` no-op.
+A distributable candidate requires identified source, build inputs and rights
+for all three payloads, including the implementation of that override.
 
 ## Decision
 
@@ -92,9 +79,9 @@ the absence of another host-process route before building.
 | Pinned Emscripten SDK/runtime source | Own compiler/linker tools, generated loader and linked C runtime. Retain its exact release mapping and applicable original license/notice texts, including musl, compiler-runtime and any embedded third-party code. |
 | Pinned ports | Own their actual library source and original notices. SDK 3.1.73's zlib port selects 1.2.13 and records its SHA-512; any other enabled port needs the same treatment. |
 | Supplier `vendor/cpython-emscripten/` | Hold the three replacement runtime outputs, their original notices, modification notices and a source receipt. A manifest binds all three outputs to one build. |
-| Supplier package/archive recipe | Admit the Python output only when its source, recipe, tool, module, rights and three output identities are complete and match the retained files. Include the source distribution and notices in the exact npm archive. A missing or mismatched input refuses preparation. |
+| Supplier package/archive recipe | Admit the Python output only when its source, recipe, tool, module, rights and three output identities are complete and match the retained files. Include the source distribution and notices in the exact npm archive as authenticated full bodies, never Git-LFS pointer text. A missing or mismatched input refuses preparation. |
 | Existing Python worker | Retain execution timeout, defense context, guarded module loading, virtual filesystem/HTTP bridges, stdin/stdout/stderr and one execution per worker. No new host permission follows from replacing the payload. |
-| Root implementer | Own the independent plan/source review, final integration, product recordings, exact-tarball sweep, publication authorisation and registry readback. |
+| Root implementer | Prepare the exact plan/source review handoff, integrate source, record product proofs and the tarball sweep, obtain the required publication authorisation and read the registry back. |
 
 The fork's Apache-2.0 license continues to cover the supplier source under its
 existing terms. The vendored Python closure retains each component's own
@@ -155,24 +142,25 @@ also include the 22,621,108-byte CPython archive and the still-unmeasured
 runtime/port sources. Measure and report those exact sizes before accepting
 the successor archive.
 
-The earlier supplier source/candidate footprint is about 264 MiB. Its old
-stage/store are rebuildable, but its frozen archive, receipts and log remain.
-The root implementer must approve an explicit temporary allowance above the
-existing 300 MiB supplier footprint before acquisition or build. Use PeakSSD
-for every large write and stop the owned work if Peak free space reaches
-25,600 MiB or Data reaches 23,028 MiB. Start only with the full temporary
-reservation above those floors. Current space does not establish that
-reservation. No large work follows merely because this proposal is committed.
+The source/candidate footprint is about 264 MiB, separate from the 3 GiB
+temporary build budget. Retain frozen archives, original receipts and logs.
+Use PeakSSD for large local writes and stop owned work if Peak free space
+reaches 25,600 MiB or Data reaches 23,028 MiB. Start only with the full
+temporary reservation above those floors. A manager-placed build on another
+machine uses its own declared folder, fresh source/tool/context receipts,
+disk floor and shared-build schedule. Transfer only declared source inputs
+and archives; no host credentials or prior execution authority moves. The
+plan review grants no reservation or publication permission.
 
 ## Replacement sequence and proof doors
 
 1. Review and accept this source-only proposal at an exact supplier PR head.
    The root implementer records its plan review on the card. No external
    provenance request, large download, recipe implementation or build occurs
-   before that pass and the explicit temporary space allowance.
-2. Acquire the pinned original inputs with all caches and temporaries on
-   PeakSSD. Authenticate their exact identities and source/release mappings;
-   retain complete original notices. Resolve source and rights gaps before
+   before that pass and available capacity within the stated budget/floors.
+2. Acquire the pinned original inputs with all caches and temporaries in
+   the selected host's owned preparation folder. Authenticate their exact
+   identities and source/release mappings; retain complete original notices. Resolve source and rights gaps before
    building. Refuse any unknown linked component.
 3. Implement and commit the small supplier-owned recipe, embedding inputs,
    rights/source manifest and archive admission changes. Keep the existing
@@ -182,8 +170,8 @@ reservation. No large work follows merely because this proposal is committed.
 4. Replace all three payloads only with the outputs of that same recorded
    source build. Include original sources/notices and the receipt. Do not
    transplant the new wrapper onto the old Wasm or reuse the old stdlib ZIP.
-   Commit/push the source and prepare one new exact npm archive. The frozen
-   `03f0f53` archive and its qualification remain unchanged.
+   Commit/push the source and prepare one new exact npm archive. Frozen
+   candidates and their original evidence remain unchanged.
 5. Through the packaged supplier's ordinary shell door, the root records
    default-off behavior, explicit `python: true`, Python 3.13.2 identity,
    arithmetic/stdlib imports, file I/O and stdin/stdout/stderr. Record that
@@ -210,6 +198,7 @@ reservation. No large work follows merely because this proposal is committed.
 | Substrate Article 5: “Run the real thing; never reimplement it.” | Complies: build official CPython and use its own runtime/asset recipe. The declared Emscripten system override preserves the supplier's existing sandbox behavior at its vendor library seam. |
 | Article 6: “The engine is corrected only toward Node, at source.” | Complies: Python packaging lives in the supplier source; no engine or installed-bundle patch is proposed. |
 | Article 9: “Knowledge lives in documents, and each fact has one home.” | Complies: this ADR owns the distribution decision; the committed input manifest and generated receipt own measured identities. Release instructions link here rather than claiming unknown source/rights. |
+| Supplier CLAUDE.md: “No WASM dependencies allowed” and its existing Python section describing CPython Wasm | Preserves the existing documented optional Python capability; clarify the general statement to name its existing vendor-runtime exception with this implementation. No additional Wasm dependency or public runtime API is introduced. |
 | tabnode ADR-0007: “Retain upstream's source and licence history” and prepare a candidate with “licences and the normal dependency closure.” | Completes the Python qualification of that requirement. The generic script callback and engine interpreter-dispatch responsibilities remain unchanged. |
 | Owner: “Main never publishes.” | Complies: main integration does not publish this supplier or advance a publication branch. Exact source/archive publication remains separately authorised. |
 | Card: “Work with the sign-ins already in place.” | Complies: acquisition/build uses public source and existing doors; no new sign-in or external provenance message is proposed. |

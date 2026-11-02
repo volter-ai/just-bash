@@ -38,6 +38,7 @@ import {
 } from "./builtins/index.js";
 import { handleShopt } from "./builtins/shopt.js";
 import { executeCommandHandler } from "./command-context.js";
+import { hasTemporaryPath, rememberCommandHash } from "./command-hash.js";
 import {
   findCommandInPath as findCommandInPathHelper,
   resolveCommand as resolveCommandHelper,
@@ -354,6 +355,10 @@ export async function executeExternalCommand(
   // External commands - resolve via PATH
   // For command -p, use default PATH /usr/bin:/bin instead of $PATH
   const defaultPath = "/usr/bin:/bin";
+  const rememberPath =
+    !commandName.includes("/") &&
+    !useDefaultPath &&
+    !hasTemporaryPath(ctx.state);
   const resolved = await resolveCommandHelper(
     ctx,
     commandName,
@@ -381,21 +386,15 @@ export async function executeExternalCommand(
   // Handle user scripts (executable files without registered command handlers)
   if ("script" in resolved) {
     // Add to hash table for PATH caching (only for non-path commands)
-    if (!commandName.includes("/")) {
-      if (!ctx.state.hashTable) {
-        ctx.state.hashTable = new Map();
-      }
-      ctx.state.hashTable.set(commandName, resolved.path);
+    if (rememberPath && !ctx.state.hashTable?.has(commandName)) {
+      rememberCommandHash(ctx.state, commandName, resolved.path);
     }
     return await executeUserScript(resolved.path, args, stdin);
   }
   const { cmd, path: cmdPath } = resolved;
   // Add to hash table for PATH caching (only for non-path commands)
-  if (!commandName.includes("/")) {
-    if (!ctx.state.hashTable) {
-      ctx.state.hashTable = new Map();
-    }
-    ctx.state.hashTable.set(commandName, cmdPath);
+  if (rememberPath && !ctx.state.hashTable?.has(commandName)) {
+    rememberCommandHash(ctx.state, commandName, cmdPath);
   }
 
   return executeCommandHandler(

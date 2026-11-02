@@ -2,6 +2,7 @@
  * Subshell, Group, and Script Execution
  *
  * Handles execution of subshells (...), groups { ...; }, and user scripts
+ * Modified by Volter for VO-3806/F6 (2026-11-01): keep command hashes shell-local.
  */
 
 import type {
@@ -59,6 +60,9 @@ export async function executeSubshell(
   }
 
   const savedEnv = new Map(ctx.state.env);
+  // Volter VO-3806/F6: a subshell inherits hashes without mutating its parent.
+  const savedHashTable = ctx.state.hashTable;
+  ctx.state.hashTable = new Map(savedHashTable);
   const savedCwd = ctx.state.cwd;
   // Save options so subshell changes (like set -e) don't affect parent
   const savedOptions = { ...ctx.state.options };
@@ -121,6 +125,7 @@ export async function executeSubshell(
 
   const restore = (): void => {
     ctx.state.env = savedEnv;
+    ctx.state.hashTable = savedHashTable;
     ctx.state.cwd = savedCwd;
     ctx.state.options = savedOptions;
     ctx.state.functions = savedFunctions;
@@ -347,6 +352,10 @@ export async function executeUserScript(
 
   // Save current state for restoration after script execution
   const savedEnv = new Map(ctx.state.env);
+  // An executable shell script starts a new shell, rather than inheriting
+  // the invoking shell's command hashes.
+  const savedHashTable = ctx.state.hashTable;
+  ctx.state.hashTable = new Map();
   const savedCwd = ctx.state.cwd;
   const savedOptions = { ...ctx.state.options };
   const savedLoopDepth = ctx.state.loopDepth;
@@ -381,6 +390,7 @@ export async function executeUserScript(
 
   const cleanup = (): void => {
     ctx.state.env = savedEnv;
+    ctx.state.hashTable = savedHashTable;
     ctx.state.cwd = savedCwd;
     ctx.state.options = savedOptions;
     ctx.state.loopDepth = savedLoopDepth;
