@@ -3,16 +3,11 @@
  *
  * Handles dispatch of built-in shell commands like export, unset, cd, etc.
  * Separated from interpreter.ts for modularity.
+ * Modified by Volter for VO-3806: use shared guarded command dispatch (2026-11-01).
  */
 
 import { isBrowserExcludedCommand } from "../commands/browser-excluded.js";
-import { sanitizeErrorMessage } from "../fs/sanitize-error.js";
-import { awaitWithDefenseContext } from "../security/defense-context.js";
-import {
-  DefenseInDepthBox,
-  SecurityViolationError,
-} from "../security/defense-in-depth-box.js";
-import type { CommandContext, ExecResult } from "../types.js";
+import type { ExecResult } from "../types.js";
 import {
   handleBreak,
   handleCd,
@@ -42,15 +37,13 @@ import {
   handleUnset,
 } from "./builtins/index.js";
 import { handleShopt } from "./builtins/shopt.js";
+import { executeCommandHandler } from "./command-context.js";
 import {
   findCommandInPath as findCommandInPathHelper,
   resolveCommand as resolveCommandHelper,
 } from "./command-resolution.js";
 import { evaluateTestArgs } from "./conditionals.js";
-import { createDefenseAwareCommandContext } from "./defense-aware-command-context.js";
-import { ExecutionLimitError } from "./errors.js";
 import { callFunction } from "./functions.js";
-import { getErrorMessage } from "./helpers/errors.js";
 import { failure, OK, testResult } from "./helpers/result.js";
 import { SHELL_BUILTINS } from "./helpers/shell-constants.js";
 import {
@@ -74,11 +67,6 @@ export type RunCommandFn = (
 ) => Promise<ExecResult>;
 
 /**
- * Type for the function that builds exported environment
- */
-export type BuildExportedEnvFn = () => Record<string, string>;
-
-/**
  * Type for the function that executes user scripts
  */
 export type ExecuteUserScriptFn = (
@@ -93,7 +81,6 @@ export type ExecuteUserScriptFn = (
 export interface BuiltinDispatchContext {
   ctx: InterpreterContext;
   runCommand: RunCommandFn;
-  buildExportedEnv: BuildExportedEnvFn;
   executeUserScript: ExecuteUserScriptFn;
 }
 
@@ -362,7 +349,7 @@ export async function executeExternalCommand(
   stdin: string,
   useDefaultPath: boolean,
 ): Promise<ExecResult> {
-  const { ctx, buildExportedEnv, executeUserScript } = dispatchCtx;
+  const { ctx, executeUserScript } = dispatchCtx;
 
   // External commands - resolve via PATH
   // For command -p, use default PATH /usr/bin:/bin instead of $PATH
@@ -411,60 +398,11 @@ export async function executeExternalCommand(
     ctx.state.hashTable.set(commandName, cmdPath);
   }
 
-  // Use groupStdin as fallback if no stdin from redirections/pipeline
-  // This is needed for commands inside groups/functions that receive stdin via heredoc
-  const effectiveStdin = stdin || ctx.state.groupStdin || "";
-
-  // Build exported environment for commands that need it (printenv, env, etc.)
-  // Most builtins need access to the full env to modify state
-  const exportedEnv = buildExportedEnv();
-
-  const cmdCtx: CommandContext = {
-    fs: ctx.fs,
-    cwd: ctx.state.cwd,
-    env: ctx.state.env,
-    exportedEnv,
-    stdin: effectiveStdin,
-    limits: ctx.limits,
-    exec: ctx.execFn,
-    fetch: ctx.fetch,
-    getRegisteredCommands: () => Array.from(ctx.commands.keys()),
-    sleep: ctx.sleep,
-    trace: ctx.trace,
-    fileDescriptors: ctx.state.fileDescriptors,
-    xpgEcho: ctx.state.shoptOptions.xpg_echo,
-    coverage: ctx.coverage,
-    signal: ctx.state.signal,
-    requireDefenseContext: ctx.requireDefenseContext,
-    jsBootstrapCode: ctx.jsBootstrapCode,
-  };
-  const guardedCmdCtx = createDefenseAwareCommandContext(cmdCtx, commandName);
-
-  try {
-    const runCommand = (): Promise<ExecResult> =>
-      awaitWithDefenseContext(
-        ctx.requireDefenseContext,
-        "command",
-        `${commandName} execution`,
-        () => cmd.execute(args, guardedCmdCtx),
-      );
-
-    if (cmd.trusted) {
-      // Trusted host-extension commands may opt in to unrestricted globals.
-      return await DefenseInDepthBox.runTrustedAsync(() => runCommand());
-    }
-    return await runCommand();
-  } catch (error) {
-    // ExecutionLimitError must propagate - these are safety limits
-    if (error instanceof ExecutionLimitError) {
-      throw error;
-    }
-    // Security violations must propagate to top-level error handling
-    if (error instanceof SecurityViolationError) {
-      throw error;
-    }
-    return failure(
-      `${commandName}: ${sanitizeErrorMessage(getErrorMessage(error))}\n`,
-    );
-  }
+  return executeCommandHandler(
+    ctx,
+    commandName,
+    stdin,
+    (context) => cmd.execute(args, context),
+    cmd.trusted,
+  );
 }

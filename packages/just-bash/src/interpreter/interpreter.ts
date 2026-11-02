@@ -8,6 +8,7 @@
  * - Conditional evaluation (conditionals.ts)
  * - Built-in commands (builtins.ts)
  * - Redirections (redirections.ts)
+ * Modified by Volter for VO-3806: share command execution context (2026-11-01).
  */
 
 import type {
@@ -174,46 +175,6 @@ export class Interpreter {
       stack: new Error().stack,
       executionId: DefenseInDepthBox.getCurrentExecutionId(),
     });
-  }
-
-  /**
-   * Build environment record containing only exported variables.
-   * In bash, only exported variables are passed to child processes.
-   * This includes both permanently exported variables (via export/declare -x)
-   * and temporarily exported variables (prefix assignments like FOO=bar cmd).
-   */
-  private buildExportedEnv(): Record<string, string> {
-    const exportedVars = this.ctx.state.exportedVars;
-    const tempExportedVars = this.ctx.state.tempExportedVars;
-
-    // Combine both exported and temp exported vars
-    const allExported = new Set<string>();
-    if (exportedVars) {
-      for (const name of exportedVars) {
-        allExported.add(name);
-      }
-    }
-    if (tempExportedVars) {
-      for (const name of tempExportedVars) {
-        allExported.add(name);
-      }
-    }
-
-    if (allExported.size === 0) {
-      // No exported vars - return empty env
-      // This matches bash behavior where variables must be exported to be visible to children
-      return Object.create(null);
-    }
-
-    // Use null-prototype to prevent prototype pollution via user-controlled variable names
-    const env: Record<string, string> = Object.create(null);
-    for (const name of allExported) {
-      const value = this.ctx.state.env.get(name);
-      if (value !== undefined) {
-        env[name] = value;
-      }
-    }
-    return env;
   }
 
   async executeScript(node: ScriptNode): Promise<ExecResult> {
@@ -1156,7 +1117,6 @@ export class Interpreter {
       ctx: this.ctx,
       runCommand: (name, a, qa, s, sf, udp, ssf) =>
         this.runCommand(name, a, qa, s, sf, udp, ssf),
-      buildExportedEnv: () => this.buildExportedEnv(),
       executeUserScript: (path, a, s) => this.executeUserScript(path, a, s),
     };
 
