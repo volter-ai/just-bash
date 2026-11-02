@@ -41,19 +41,16 @@ alongside their existing environment boundary; a newly executed shell starts
 with no inherited hashes. The implementation is in `command-hash.ts`, the
 resolver/dispatch and the existing state-copy doors.
 
-The source correction was prepared at `1de94fd59faed137b49167eaa87009a5d07d8f8e`
-without installs, builds, tests or publication. The packaging source names the
-owned package `@volter/just-bash@2.14.5-volter.0`, retains the upstream runtime
-dependency ranges and exact lock resolutions, and adds an isolated production
+The packaging source names the owned package
+`@volter/just-bash@2.14.5-volter.0`, retains the upstream runtime dependency
+ranges and exact lock resolutions, and owns an isolated production
 build/archive recipe in `dev/release/`. Generated `dist/source-receipt.json`
 identifies the actual packaging head and build inputs in each candidate.
 No installed dependency or generated upstream bundle is patched.
-The callback does not implement any interpreter itself; tabnode owns its
-Node launch policy and product observations.
+Tabnode owns the Node launch policy and product observations.
 
-The fork's Actions remain disabled. Inherited automatic workflows and the
-automatic prepublish test hook are retired in the packaging source. The root
-release command prepares an unpublished archive and never publishes. An exact
-source-built tarball, declarations, licence inclusion, dependency closure,
+The fork's Actions are disabled. The root release command prepares a
+source-built archive locally; publication is a separate authorised command.
+The exact source-built tarball, declarations, licence inclusion, dependency closure,
 keys sweep and manager publication authorisation are required before the
 separate local npm publication described in `dev/release/README.md`.
